@@ -7,6 +7,8 @@ namespace ProducerConsumer
 {
     class Program
     {
+        CountdownEvent producerWaiting;
+        CountdownEvent consumerWaiting;
         static void Main(string[] args)
         {
             Program program = new Program();
@@ -14,8 +16,12 @@ namespace ProducerConsumer
             int itemNumber = int.Parse(Console.ReadLine());
             int countOfProducers = int.Parse(Console.ReadLine());
             int countOfConsumers = int.Parse(Console.ReadLine());
+            program.producerWaiting = new CountdownEvent(countOfProducers);
+            program.consumerWaiting = new CountdownEvent(countOfConsumers);
             program.Starter(storageSize, itemNumber,countOfProducers,countOfConsumers);
-
+            program.producerWaiting.Wait();
+            program.consumerWaiting.Wait();
+            Console.WriteLine("completed");
             Console.ReadKey();
         }
 
@@ -27,24 +33,24 @@ namespace ProducerConsumer
             Empty = new Semaphore(0, storageSize);
 
 
-            int productCountForSingleConsumer = itemNumber / countOfConsumers;
-            int remainProductsForConsumers = itemNumber % countOfConsumers;
 
-            for (int i = 0; i < countOfConsumers; i++,remainProductsForConsumers--)
+            for (int i = 0; i < countOfConsumers; i++)
             {
                 int id = i;
-                new Thread(()=>Consumer(id,remainProductsForConsumers>0?
-                    productCountForSingleConsumer+1:productCountForSingleConsumer)).Start();
+                int countToTake = itemNumber / countOfConsumers;
+                if (id < itemNumber % countOfConsumers) countToTake++;
+
+                new Thread(() => Consumer(id, countToTake)).Start();
             }
 
-            int productCountForSingleProducer = itemNumber / countOfProducers;
-            int remainProductsForProducer = itemNumber % countOfProducers;
 
-            for (int i = 0; i < countOfProducers; i++, remainProductsForProducer--)
+            for (int i = 0; i < countOfProducers; i++)
             {
                 int id = i;
-                new Thread(() => Producer(id, remainProductsForProducer > 0 ?
-                    productCountForSingleProducer + 1 : productCountForSingleProducer)).Start();
+                int countToProduce = itemNumber / countOfProducers;
+                if (id < itemNumber % countOfProducers) countToProduce++;
+
+                new Thread(() => Producer(id, countToProduce)).Start();
             }
         }
 
@@ -74,6 +80,7 @@ namespace ProducerConsumer
                 Empty.Release();
                 
             }
+            producerWaiting.Signal();
         }
 
         private void Consumer(int id,Object itemNumbers)
@@ -96,6 +103,7 @@ namespace ProducerConsumer
                 
                 Console.WriteLine("consumer with "+id+" Took " + item);
             }
+            consumerWaiting.Signal();
         }
     }
 }
